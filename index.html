@@ -7,18 +7,20 @@
 
 <h1>PDF Upload App</h1>
 
+<!-- Login -->
 <button onclick="login()">Login with Google</button>
 <p id="status">Not logged in</p>
 
 <br><br>
 
+<!-- Upload -->
 <input type="file" id="fileInput" accept="application/pdf" />
 <button onclick="upload()">Upload PDF</button>
-
 <p id="uploadStatus"></p>
 
 <hr>
 
+<!-- Search -->
 <h3>Search PDFs</h3>
 <input type="text" id="searchInput" placeholder="Enter file name..." />
 <button onclick="search()">Search</button>
@@ -30,9 +32,11 @@
 <script>
 let accessToken = "";
 
+// ======================
 // Login
+// ======================
 const client = google.accounts.oauth2.initTokenClient({
-  client_id: "891941702482-dv3p8elngkqt5af1i0mem3253t1hsdrh.apps.googleusercontent.com",
+  client_id: "891941702482-dv3p8elngkqt5af1i0mem3253t1hsdrh.apps.googleusercontent.com", // Replace with your actual client ID
   scope: "https://www.googleapis.com/auth/drive.file",
   callback: (response) => {
     if (response.access_token) {
@@ -46,7 +50,9 @@ function login() {
   client.requestAccessToken();
 }
 
-// Upload
+// ======================
+// Upload PDF
+// ======================
 async function upload() {
   const file = document.getElementById("fileInput").files[0];
 
@@ -64,55 +70,95 @@ async function upload() {
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", file);
 
-  const res = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-    {
-      method: "POST",
-      headers: { Authorization: "Bearer " + accessToken },
-      body: form
-    }
-  );
+  try {
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + accessToken },
+        body: form
+      }
+    );
 
-  const data = await res.json();
+    const data = await res.json();
+    document.getElementById("uploadStatus").innerText =
+      "✅ Uploaded: " + file.name;
 
-  document.getElementById("uploadStatus").innerText =
-    "✅ Uploaded: " + file.name;
+  } catch (err) {
+    console.error(err);
+    document.getElementById("uploadStatus").innerText = "❌ Upload failed";
+  }
 }
 
+// ======================
 // Search PDFs
+// ======================
 async function search() {
   const queryText = document.getElementById("searchInput").value;
 
   if (!accessToken) return alert("Login first");
 
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files?q=name contains '${queryText}' and mimeType='application/pdf'`,
-    {
-      headers: {
-        Authorization: "Bearer " + accessToken
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name contains '${queryText}' and mimeType='application/pdf'`,
+      {
+        headers: { Authorization: "Bearer " + accessToken }
       }
+    );
+
+    const data = await res.json();
+
+    const list = document.getElementById("results");
+    list.innerHTML = "";
+
+    if (!data.files || data.files.length === 0) {
+      list.innerHTML = "<li>No files found</li>";
+      return;
     }
-  );
 
-  const data = await res.json();
+    data.files.forEach(file => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        ${file.name} 
+        <button onclick="download('${file.id}', '${file.name}')">Download</button>
+      `;
+      list.appendChild(li);
+    });
 
-  const list = document.getElementById("results");
-  list.innerHTML = "";
-
-  data.files.forEach(file => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      ${file.name}
-      <button onclick="download('${file.id}')">Download</button>
-    `;
-    list.appendChild(li);
-  });
+  } catch (err) {
+    console.error(err);
+    alert("Search failed");
+  }
 }
 
-// Download
-function download(fileId) {
-  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-  window.open(url);
+// ======================
+// Download PDF
+// ======================
+async function download(fileId, fileName) {
+  if (!accessToken) return alert("Login first");
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      {
+        headers: { Authorization: "Bearer " + accessToken }
+      }
+    );
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+  } catch (err) {
+    console.error(err);
+    alert("Download failed");
+  }
 }
 </script>
 
