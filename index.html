@@ -8,20 +8,27 @@
 <h1>PDF Upload App</h1>
 
 <button onclick="login()">Login with Google</button>
-<br><br>
+<p id="status">Not logged in</p>
 
-<input type="file" id="fileInput" />
-<button onclick="upload()">Upload PDF</button>
+<script src="https://accounts.google.com/gsi/client"></script>
 
 <script>
 let accessToken = "";
 
-function login() {
-  alert("Login will be added in next step");
-}
+const client = google.accounts.oauth2.initTokenClient({
+  client_id: "891941702482-dv3p8elngkqt5af1i0mem3253t1hsdrh.apps.googleusercontent.com",
+  scope: "https://www.googleapis.com/auth/drive.file",
+  callback: (response) => {
+    if (response.access_token) {
+      accessToken = response.access_token;
+      document.getElementById("status").innerText = "✅ Logged in!";
+      console.log("Access Token:", accessToken);
+    }
+  }
+});
 
-function upload() {
-  alert("Upload will be added in later step");
+function login() {
+  client.requestAccessToken();
 }
 </script>
 
