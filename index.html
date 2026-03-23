@@ -17,12 +17,20 @@
 
 <p id="uploadStatus"></p>
 
+<hr>
+
+<h3>Search PDFs</h3>
+<input type="text" id="searchInput" placeholder="Enter file name..." />
+<button onclick="search()">Search</button>
+
+<ul id="results"></ul>
+
 <script src="https://accounts.google.com/gsi/client"></script>
 
 <script>
 let accessToken = "";
 
-// Google Login
+// Login
 const client = google.accounts.oauth2.initTokenClient({
   client_id: "891941702482-dv3p8elngkqt5af1i0mem3253t1hsdrh.apps.googleusercontent.com",
   scope: "https://www.googleapis.com/auth/drive.file",
@@ -38,20 +46,12 @@ function login() {
   client.requestAccessToken();
 }
 
-// Upload PDF
+// Upload
 async function upload() {
-  const fileInput = document.getElementById("fileInput");
-  const file = fileInput.files[0];
+  const file = document.getElementById("fileInput").files[0];
 
-  if (!file) {
-    alert("Please select a PDF file");
-    return;
-  }
-
-  if (!accessToken) {
-    alert("Please login first");
-    return;
-  }
+  if (!file) return alert("Select a PDF");
+  if (!accessToken) return alert("Login first");
 
   document.getElementById("uploadStatus").innerText = "Uploading...";
 
@@ -64,30 +64,55 @@ async function upload() {
   form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
   form.append("file", file);
 
-  try {
-    const res = await fetch(
-      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-      {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + accessToken
-        },
-        body: form
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer " + accessToken },
+      body: form
+    }
+  );
+
+  const data = await res.json();
+
+  document.getElementById("uploadStatus").innerText =
+    "✅ Uploaded: " + file.name;
+}
+
+// Search PDFs
+async function search() {
+  const queryText = document.getElementById("searchInput").value;
+
+  if (!accessToken) return alert("Login first");
+
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name contains '${queryText}' and mimeType='application/pdf'`,
+    {
+      headers: {
+        Authorization: "Bearer " + accessToken
       }
-    );
+    }
+  );
 
-    const data = await res.json();
+  const data = await res.json();
 
-    document.getElementById("uploadStatus").innerText =
-      "✅ Upload successful! File ID: " + data.id;
+  const list = document.getElementById("results");
+  list.innerHTML = "";
 
-    console.log("Uploaded file:", data);
+  data.files.forEach(file => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      ${file.name}
+      <button onclick="download('${file.id}')">Download</button>
+    `;
+    list.appendChild(li);
+  });
+}
 
-  } catch (err) {
-    console.error(err);
-    document.getElementById("uploadStatus").innerText =
-      "❌ Upload failed";
-  }
+// Download
+function download(fileId) {
+  const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  window.open(url);
 }
 </script>
 
