@@ -10,11 +10,19 @@
 <button onclick="login()">Login with Google</button>
 <p id="status">Not logged in</p>
 
+<br><br>
+
+<input type="file" id="fileInput" accept="application/pdf" />
+<button onclick="upload()">Upload PDF</button>
+
+<p id="uploadStatus"></p>
+
 <script src="https://accounts.google.com/gsi/client"></script>
 
 <script>
 let accessToken = "";
 
+// Google Login
 const client = google.accounts.oauth2.initTokenClient({
   client_id: "891941702482-dv3p8elngkqt5af1i0mem3253t1hsdrh.apps.googleusercontent.com",
   scope: "https://www.googleapis.com/auth/drive.file",
@@ -22,13 +30,64 @@ const client = google.accounts.oauth2.initTokenClient({
     if (response.access_token) {
       accessToken = response.access_token;
       document.getElementById("status").innerText = "✅ Logged in!";
-      console.log("Access Token:", accessToken);
     }
   }
 });
 
 function login() {
   client.requestAccessToken();
+}
+
+// Upload PDF
+async function upload() {
+  const fileInput = document.getElementById("fileInput");
+  const file = fileInput.files[0];
+
+  if (!file) {
+    alert("Please select a PDF file");
+    return;
+  }
+
+  if (!accessToken) {
+    alert("Please login first");
+    return;
+  }
+
+  document.getElementById("uploadStatus").innerText = "Uploading...";
+
+  const metadata = {
+    name: file.name,
+    mimeType: "application/pdf"
+  };
+
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file", file);
+
+  try {
+    const res = await fetch(
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + accessToken
+        },
+        body: form
+      }
+    );
+
+    const data = await res.json();
+
+    document.getElementById("uploadStatus").innerText =
+      "✅ Upload successful! File ID: " + data.id;
+
+    console.log("Uploaded file:", data);
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("uploadStatus").innerText =
+      "❌ Upload failed";
+  }
 }
 </script>
 
